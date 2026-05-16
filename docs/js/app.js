@@ -39,9 +39,9 @@ const App = {
         document.getElementById('analyzeBtn').addEventListener('click', () => this.analyze());
 
         // Vista
-        document.querySelectorAll('.view-btn').forEach(btn => {
-            btn.addEventListener('click', e => {
-                document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 this.activeView = btn.dataset.view;
                 this.renderActiveView();
@@ -62,6 +62,7 @@ const App = {
         this.currentFile = file;
         const ext = file.name.split('.').pop().toLowerCase();
         this.setStatus('loading', 'Cargando imagen...');
+        document.getElementById('welcomeScreen').style.display = 'none';
         this.showSection('imageSection');
 
         try {
@@ -84,7 +85,9 @@ const App = {
             this.clearProcessed();
             this.setStatus('ready', `Imagen cargada: ${file.name} (${imageData.width}×${imageData.height} px)`);
             document.getElementById('analyzeBtn').disabled = false;
-            document.getElementById('fileInfo').textContent = `${file.name} — ${imageData.width}×${imageData.height} px`;
+            const fi = document.getElementById('fileInfo');
+        fi.style.display = 'flex';
+        document.getElementById('fileInfoText').textContent = `${file.name} — ${imageData.width}×${imageData.height} px`;
         } catch (err) {
             this.setStatus('error', 'Error: ' + err.message);
             console.error(err);
@@ -127,8 +130,8 @@ const App = {
                 document.getElementById('exportBtn').disabled = false;
                 document.getElementById('reportBtn').disabled = false;
                 this.setStatus('done', this.results.hasIschemia
-                    ? `Isquemia detectada — ${this.results.numRegions} región(es)`
-                    : 'Sin evidencia de isquemia');
+                    ? `Análisis completado — ${this.results.numRegions} región(es) isquémica(s) detectada(s)`
+                    : 'Análisis completado — Sin evidencia de isquemia');
             } catch (err) {
                 this.setStatus('error', 'Error en análisis: ' + err.message);
                 console.error(err);
@@ -143,13 +146,13 @@ const App = {
         panel.style.display = 'block';
 
         // Indicador principal
-        const indicator = document.getElementById('detectionIndicator');
+        const indicator = document.getElementById('detectionBadge');
         if (r.hasIschemia) {
             indicator.className = 'detection-badge positive';
-            indicator.innerHTML = `<span class="badge-icon">⚠</span><span>ISQUEMIA DETECTADA</span>`;
+            indicator.textContent = 'Isquemia detectada';
         } else {
             indicator.className = 'detection-badge negative';
-            indicator.innerHTML = `<span class="badge-icon">✓</span><span>SIN ISQUEMIA DETECTADA</span>`;
+            indicator.textContent = 'Sin isquemia detectada';
         }
 
         // Métricas
@@ -169,7 +172,7 @@ const App = {
         const tbody = document.getElementById('regionsTable');
         tbody.innerHTML = '';
         if (r.regions.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted)">Sin regiones detectadas</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="table-empty">Sin regiones detectadas</td></tr>';
         } else {
             r.regions.forEach((reg, i) => {
                 const w = reg.maxX - reg.minX;
@@ -177,9 +180,10 @@ const App = {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${i + 1}</td>
-                    <td>${reg.size.toLocaleString()} px²</td>
+                    <td>${reg.size.toLocaleString()}</td>
                     <td>${(reg.size / r.brainArea * 100).toFixed(2)}%</td>
-                    <td>(${reg.minX}, ${reg.minY}) — ${w}×${h} px</td>
+                    <td>(${reg.minX}, ${reg.minY})</td>
+                    <td>${w} × ${h} px</td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -272,12 +276,12 @@ const App = {
         const ctx = canvas.getContext('2d');
         canvas.width  = 300;
         canvas.height = 200;
-        ctx.fillStyle = '#0d1117';
+        ctx.fillStyle = '#070a10';
         ctx.fillRect(0, 0, 300, 200);
-        ctx.fillStyle = '#3d4451';
-        ctx.font = '14px sans-serif';
+        ctx.fillStyle = '#1e2538';
+        ctx.font = '13px Inter, sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('Presione "Analizar" para procesar', 150, 100);
+        ctx.fillText('Ejecute el análisis para visualizar resultados', 150, 100);
         ctx.textAlign = 'left';
 
         document.getElementById('resultsPanel').style.display = 'none';
@@ -286,13 +290,19 @@ const App = {
     },
 
     setStatus(type, msg) {
-        const el = document.getElementById('statusBar');
-        el.className = 'status-bar ' + type;
-        el.textContent = msg;
+        document.getElementById('statusText').textContent = msg;
+        document.getElementById('statusIndicator').className = 'statusbar-indicator ' + type;
+        // Header dot
+        const dot = document.getElementById('headerDot');
+        if (dot) { dot.className = 'status-dot ' + type; }
+        document.getElementById('headerStatusText').textContent = msg;
     },
 
     showSection(id) {
-        document.getElementById(id).style.display = 'flex';
+        const el = document.getElementById(id);
+        el.style.display = 'flex';
+        el.style.flexDirection = 'row';
+        el.style.flexWrap = 'wrap';
     },
 
     showDICOMMetadata(meta) {
@@ -365,7 +375,7 @@ const App = {
 
 <h2>Resultado de Detección</h2>
 <p><span class="badge ${r.hasIschemia ? 'positive' : 'negative'}">
-  ${r.hasIschemia ? '⚠ ISQUEMIA DETECTADA' : '✓ SIN ISQUEMIA DETECTADA'}
+  ${r.hasIschemia ? 'ISQUEMIA DETECTADA' : 'SIN ISQUEMIA DETECTADA'}
 </span></p>
 
 <h2>Métricas</h2>
@@ -399,7 +409,7 @@ ${r.regions.length ? `
 <img src="${processedImg}" alt="Imagen procesada con overlay de isquemia">
 
 <div class="footer">
-  Generado por MRI Ischemia Detector · Proyecto académico de procesamiento de imágenes médicas
+  Generado por NeuroScan · Software de procesamiento de imágenes médicas
 </div>
 </body>
 </html>`;
