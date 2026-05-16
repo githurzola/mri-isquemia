@@ -44,18 +44,6 @@ header {
     box-shadow: 0 2px 12px rgba(0,0,0,.4);
 }
 
-.header-logo {
-    width: 44px;
-    height: 44px;
-    background: linear-gradient(135deg, var(--accent2), var(--accent));
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #fff;
-    flex-shrink: 0;
-}
-
 .header-text h1 {
     font-size: 1.2rem;
     font-weight: 700;
