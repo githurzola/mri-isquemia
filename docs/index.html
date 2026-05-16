@@ -9,97 +9,114 @@
 </head>
 <body>
 
+<!-- HEADER -->
 <header>
     <div class="header-text">
         <h1>Detector de Isquemia Cerebral</h1>
         <p>Procesamiento de Imágenes por Resonancia Magnética</p>
     </div>
-    <div class="header-badge">MRI &middot; Procesamiento Digital</div>
+    <div class="header-right">
+        <span class="header-badge">MRI &middot; Procesamiento Digital</span>
+        <div class="header-status">
+            <div class="h-dot" id="hDot"></div>
+            <span id="hStatusText">Sistema listo</span>
+        </div>
+    </div>
 </header>
 
+<!-- LAYOUT -->
 <div class="layout">
 
     <!-- SIDEBAR -->
     <aside class="sidebar">
 
+        <!-- Adquisición -->
         <div class="sidebar-section">
-            <h3>Cargar Imagen</h3>
+            <div class="section-label">Adquisición</div>
+
             <div id="dropZone">
                 <div class="drop-icon">
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                         <polyline points="17 8 12 3 7 8"/>
                         <line x1="12" y1="3" x2="12" y2="15"/>
                     </svg>
                 </div>
-                <p><span>Haga clic</span> o arrastre una imagen aquí</p>
-                <p style="margin-top:6px;font-size:0.7rem">DICOM &nbsp;·&nbsp; JPG &nbsp;·&nbsp; PNG &nbsp;·&nbsp; BMP</p>
+                <p><span>Seleccione</span> o arrastre una imagen</p>
+                <p class="drop-formats">DICOM &nbsp;·&nbsp; JPG &nbsp;·&nbsp; PNG &nbsp;·&nbsp; BMP &nbsp;·&nbsp; TIFF</p>
             </div>
-            <input type="file" id="fileInput" accept=".dcm,.dicom,.jpg,.jpeg,.png,.bmp,.tif,.tiff" style="display:none">
-            <div id="fileInfo"></div>
+            <input type="file" id="fileInput" accept=".dcm,.dicom,.jpg,.jpeg,.png,.bmp,.tif,.tiff">
+
+            <div id="fileInfo" style="display:none">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                <span id="fileInfoText"></span>
+            </div>
         </div>
 
+        <!-- Parámetros -->
         <div class="sidebar-section">
-            <h3>Parámetros de Detección</h3>
+            <div class="section-label">Parámetros</div>
 
             <div class="control-group">
-                <label>
-                    Sensibilidad
-                    <span class="value" id="sensitivityValue">2.0</span>
-                </label>
-                <input type="range" id="sensitivitySlider" min="0.5" max="4.0" step="0.1" value="2.0">
-                <div style="display:flex;justify-content:space-between;font-size:0.68rem;color:var(--muted);margin-top:4px">
-                    <span>Baja (más regiones)</span>
-                    <span>Alta (más estricto)</span>
+                <div class="ctrl-label">
+                    <span>Sensibilidad (k·&sigma;)</span>
+                    <span class="ctrl-value" id="sensitivityValue">2.0</span>
                 </div>
+                <input type="range" id="sensitivitySlider" min="0.5" max="4.0" step="0.1" value="2.0">
+                <div class="range-hints"><span>Permisivo</span><span>Estricto</span></div>
             </div>
 
             <div class="control-group">
-                <label>Modo de detección</label>
+                <div class="ctrl-label"><span>Secuencia de imagen</span></div>
                 <select id="detectionMode">
-                    <option value="bright">Regiones hiperintensas (T2 / FLAIR / DWI)</option>
-                    <option value="dark">Regiones hipointensas (T1)</option>
+                    <option value="bright">Hiperintensa &mdash; T2 / FLAIR / DWI</option>
+                    <option value="dark">Hipointensa &mdash; T1</option>
                 </select>
             </div>
 
-            <div class="algo-info">
-                <strong>Algoritmo:</strong> Umbralización estadística adaptativa (media &plusmn; k&middot;&sigma;) dentro de la máscara cerebral, con operaciones morfológicas y análisis de componentes conexos.
+            <div class="info-box">
+                <strong>Método:</strong> Umbralización estadística adaptativa (&mu; &plusmn; k&middot;&sigma;) sobre máscara cerebral. Apertura morfológica y análisis de componentes conexos.
             </div>
         </div>
 
+        <!-- Acciones -->
         <div class="sidebar-section">
+            <div class="section-label">Acciones</div>
+
             <button class="btn btn-primary" id="analyzeBtn" disabled>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                Analizar imagen
+                <svg id="analyzeBtnIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <span id="analyzeBtnText">Ejecutar análisis</span>
             </button>
             <button class="btn btn-secondary" id="exportBtn" disabled>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Exportar imagen procesada
+                Exportar imagen
             </button>
             <button class="btn btn-secondary" id="reportBtn" disabled>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                Generar reporte PDF
+                Generar reporte
             </button>
         </div>
 
+        <!-- Metadatos DICOM -->
         <div class="sidebar-section" id="dicomMetadata">
-            <h3>Metadatos DICOM</h3>
+            <div class="section-label">Metadatos DICOM</div>
             <div id="metadataList"></div>
         </div>
 
+        <!-- Leyenda -->
         <div class="sidebar-section">
-            <h3>Leyenda de Colores</h3>
-            <div style="display:flex;flex-direction:column;gap:8px;font-size:0.8rem;">
-                <div style="display:flex;align-items:center;gap:10px">
-                    <div style="width:20px;height:20px;background:rgba(255,60,60,0.65);border-radius:3px;flex-shrink:0;border:1px solid rgba(255,60,60,.4)"></div>
+            <div class="section-label">Leyenda</div>
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-swatch" style="background:rgba(255,60,60,.7);border:1px solid rgba(255,60,60,.4)"></div>
                     <span>Zona isquémica detectada</span>
                 </div>
-                <div style="display:flex;align-items:center;gap:10px">
-                    <div style="width:20px;height:20px;background:#e8e800;border-radius:3px;flex-shrink:0"></div>
+                <div class="legend-item">
+                    <div class="legend-swatch" style="background:#e8e800;border:1px solid rgba(200,200,0,.4)"></div>
                     <span>Contorno de la lesión</span>
                 </div>
-                <div style="display:flex;align-items:center;gap:10px">
-                    <div style="width:20px;height:20px;background:rgba(0,210,210,.7);border-radius:3px;flex-shrink:0"></div>
+                <div class="legend-item">
+                    <div class="legend-swatch" style="background:rgba(0,210,210,.7);border:1px solid rgba(0,180,180,.4)"></div>
                     <span>Bounding box de la región</span>
                 </div>
             </div>
@@ -110,18 +127,20 @@
     <!-- CONTENIDO PRINCIPAL -->
     <main class="main-content">
 
+        <!-- Barra de estado -->
         <div class="status-bar" id="statusBar">
-            Listo &mdash; Cargue una imagen de RM para comenzar el análisis
+            <div class="status-dot-sm"></div>
+            <span id="statusText">Listo &mdash; Cargue una imagen de RM para iniciar el análisis</span>
         </div>
 
         <!-- Pantalla de bienvenida -->
         <div id="welcomeScreen">
-            <div class="welcome-title">Detector de Isquemia Cerebral en MRI</div>
+            <div class="welcome-title">Detección Automática de Isquemia Cerebral</div>
             <div class="welcome-sub">
-                Cargue una imagen de resonancia magnética para detectar automáticamente zonas isquémicas, demarcar la lesión y calcular el área afectada.
+                Cargue una imagen de resonancia magnética cerebral para detectar zonas isquémicas, demarcar la lesión y calcular el área comprometida como porcentaje del parénquima cerebral.
             </div>
             <div class="formats-list">
-                <span class="fmt-chip">DICOM (.dcm)</span>
+                <span class="fmt-chip">DICOM</span>
                 <span class="fmt-chip">JPEG</span>
                 <span class="fmt-chip">PNG</span>
                 <span class="fmt-chip">BMP</span>
@@ -130,27 +149,28 @@
         </div>
 
         <!-- Paneles de imagen -->
-        <div id="imageSection" style="display:none; gap:16px; flex-direction:row; flex-wrap:wrap;">
+        <div id="imageSection" style="display:none; gap:14px; flex-wrap:wrap;">
 
-            <div class="image-panel-wrapper" style="flex:1;min-width:300px">
+            <div class="image-panel-wrapper" style="flex:1;min-width:280px">
                 <div class="panel-header">
-                    <span>Imagen Original</span>
+                    <span class="panel-label">Imagen original</span>
                 </div>
                 <div class="canvas-container">
                     <canvas id="originalCanvas"></canvas>
                 </div>
             </div>
 
-            <div class="image-panel-wrapper" style="flex:1;min-width:300px">
+            <div class="image-panel-wrapper" style="flex:1;min-width:280px">
                 <div class="panel-header">
-                    <span>Resultado del Análisis</span>
+                    <span class="panel-label">Resultado del análisis</span>
                     <div class="view-controls">
                         <button class="view-btn active" data-view="overlay">Overlay</button>
                         <button class="view-btn" data-view="mask">Máscara</button>
                         <button class="view-btn" data-view="brain">Cerebro</button>
                     </div>
                 </div>
-                <div class="canvas-container">
+                <div class="canvas-container" id="processedContainer">
+                    <div class="scan-overlay" id="scanOverlay"></div>
                     <canvas id="processedCanvas"></canvas>
                 </div>
             </div>
@@ -159,51 +179,52 @@
 
         <!-- Panel de resultados -->
         <div id="resultsPanel">
-            <div class="results-header">Resultados del Análisis</div>
+            <div class="results-topbar">
+                <span class="results-title">Resultados del análisis</span>
+                <div id="detectionIndicator" class="detection-badge neutral">Pendiente</div>
+            </div>
             <div class="results-body">
 
-                <div id="detectionIndicator" class="detection-badge negative">
-                    <svg class="badge-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-                    <span>SIN ISQUEMIA DETECTADA</span>
-                </div>
-
-                <div class="pct-bar-container">
-                    <div id="percentageBar"></div>
+                <div class="pct-bar-wrap">
+                    <div class="pct-bar-track">
+                        <div class="pct-bar-fill" id="percentageBar"></div>
+                    </div>
+                    <span class="pct-label" id="pctLabel">0%</span>
                 </div>
 
                 <div class="metrics-grid">
                     <div class="metric-card">
-                        <div class="label">Área Cerebral Total</div>
+                        <div class="label">Área Cerebral</div>
                         <div class="value" id="metricBrainArea">—</div>
                     </div>
                     <div class="metric-card">
                         <div class="label">Área Isquémica</div>
                         <div class="value" id="metricIschemicArea">—</div>
                     </div>
-                    <div class="metric-card">
-                        <div class="label">Porcentaje Afectado</div>
+                    <div class="metric-card highlight-card">
+                        <div class="label">Tejido Comprometido</div>
                         <div class="value" id="metricPercentage">—</div>
                     </div>
                     <div class="metric-card">
-                        <div class="label">Regiones Detectadas</div>
+                        <div class="label">Regiones</div>
                         <div class="value" id="metricRegions">—</div>
                     </div>
                 </div>
 
-                <div class="regions-section">
-                    <h4>Detalle de Regiones Isquémicas</h4>
+                <div class="table-section">
+                    <div class="table-title">Detalle de regiones isquémicas</div>
                     <table>
                         <thead>
                             <tr>
-                                <th>#</th>
-                                <th>Área (px²)</th>
+                                <th>N&deg;</th>
+                                <th>Área (px&sup2;)</th>
                                 <th>% del cerebro</th>
                                 <th>Ubicación</th>
                                 <th>Dimensiones</th>
                             </tr>
                         </thead>
                         <tbody id="regionsTable">
-                            <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:16px">Sin datos</td></tr>
+                            <tr><td colspan="5" class="table-empty">Ejecute el análisis para ver los resultados</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -218,6 +239,5 @@
 <script src="js/analyzer.js"></script>
 <script src="js/dicom-handler.js"></script>
 <script src="js/app.js"></script>
-
 </body>
 </html>
