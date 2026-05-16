@@ -39,9 +39,9 @@ const App = {
         document.getElementById('analyzeBtn').addEventListener('click', () => this.analyze());
 
         // Vista
-        document.querySelectorAll('.tab').forEach(btn => {
+        document.querySelectorAll('.view-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 this.activeView = btn.dataset.view;
                 this.renderActiveView();
@@ -85,9 +85,7 @@ const App = {
             this.clearProcessed();
             this.setStatus('ready', `Imagen cargada: ${file.name} (${imageData.width}×${imageData.height} px)`);
             document.getElementById('analyzeBtn').disabled = false;
-            const fi = document.getElementById('fileInfo');
-        fi.style.display = 'flex';
-        document.getElementById('fileInfoText').textContent = `${file.name} — ${imageData.width}×${imageData.height} px`;
+            document.getElementById('fileInfo').textContent = `${file.name} — ${imageData.width}×${imageData.height} px`;
         } catch (err) {
             this.setStatus('error', 'Error: ' + err.message);
             console.error(err);
@@ -146,13 +144,15 @@ const App = {
         panel.style.display = 'block';
 
         // Indicador principal
-        const indicator = document.getElementById('detectionBadge');
+        const indicator = document.getElementById('detectionIndicator');
+        const checkSVG = `<svg class="badge-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>`;
+        const warnSVG  = `<svg class="badge-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
         if (r.hasIschemia) {
             indicator.className = 'detection-badge positive';
-            indicator.textContent = 'Isquemia detectada';
+            indicator.innerHTML = `${warnSVG}<span>ISQUEMIA DETECTADA</span>`;
         } else {
             indicator.className = 'detection-badge negative';
-            indicator.textContent = 'Sin isquemia detectada';
+            indicator.innerHTML = `${checkSVG}<span>SIN ISQUEMIA DETECTADA</span>`;
         }
 
         // Métricas
@@ -290,19 +290,13 @@ const App = {
     },
 
     setStatus(type, msg) {
-        document.getElementById('statusText').textContent = msg;
-        document.getElementById('statusIndicator').className = 'statusbar-indicator ' + type;
-        // Header dot
-        const dot = document.getElementById('headerDot');
-        if (dot) { dot.className = 'status-dot ' + type; }
-        document.getElementById('headerStatusText').textContent = msg;
+        const el = document.getElementById('statusBar');
+        el.className = 'status-bar ' + type;
+        el.textContent = msg;
     },
 
     showSection(id) {
-        const el = document.getElementById(id);
-        el.style.display = 'flex';
-        el.style.flexDirection = 'row';
-        el.style.flexWrap = 'wrap';
+        document.getElementById(id).style.display = 'flex';
     },
 
     showDICOMMetadata(meta) {
