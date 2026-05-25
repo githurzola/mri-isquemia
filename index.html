@@ -46,15 +46,27 @@
             <h3>Parámetros de Detección</h3>
 
             <div class="control-group">
-                <label>
-                    Sensibilidad
-                    <span class="value" id="sensitivityValue">2.0</span>
+                <label style="justify-content:space-between">
+                    Sensibilidad (k·σ)
+                    <span id="sensitivityValue">AUTO</span>
                 </label>
-                <input type="range" id="sensitivitySlider" min="0.5" max="4.0" step="0.1" value="2.0">
-                <div style="display:flex;justify-content:space-between;font-size:0.68rem;color:var(--muted);margin-top:4px">
-                    <span>Baja (más regiones)</span>
-                    <span>Alta (más estricto)</span>
+
+                <!-- Toggle de ajuste automático -->
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px">
+                    <input type="checkbox" id="autoKToggle" checked>
+                    <label for="autoKToggle" style="font-size:0.8rem; color:var(--muted)">
+                        Ajuste automático
+                    </label>
                 </div>
+
+                <!-- Slider (deshabilitado por defecto cuando auto está activo) -->
+                <input type="range" id="sensitivitySlider"
+                       min="0.5" max="4.0" step="0.1" value="2.0" disabled
+                       style="opacity:0.4; pointer-events:none">
+
+                <!-- Info del k calculado / usado -->
+                <div id="autoKInfo" style="font-size:0.72rem; color:var(--accent);
+                     margin-top:4px; min-height:16px"></div>
             </div>
 
             <div class="control-group">
@@ -174,6 +186,10 @@
                     <span class="badge-icon">✓</span>
                     <span>SIN ISQUEMIA DETECTADA</span>
                 </div>
+
+                <!-- k usado en el análisis -->
+                <div id="kUsedLine" style="font-size:0.78rem; color:var(--muted);
+                     text-align:center; margin-top:6px; min-height:18px"></div>
 
                 <!-- Barra de porcentaje -->
                 <div class="pct-bar-container">
