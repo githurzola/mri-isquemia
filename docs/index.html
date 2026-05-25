@@ -1,229 +1,228 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Detector de Isquemia Cerebral — MRI</title>
-  <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detector de Isquemia Cerebral — MRI</title>
+    <meta name="description" content="Software de procesamiento de imágenes MRI para detección de isquemia cerebral">
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<!-- HEADER -->
+<!-- ═══════════════════════════════════════════════════════
+     HEADER
+════════════════════════════════════════════════════════ -->
 <header>
-  <div class="header-text">
-    <h1>Detector de Isquemia Cerebral</h1>
-    <p>Procesamiento de Imágenes por Resonancia Magnética</p>
-  </div>
-  <span class="header-pill">MRI &middot; Análisis Digital</span>
-  <div class="hstatus">
-    <div class="hstatus-dot" id="hDot"></div>
-    <span id="hText">Sistema listo</span>
-  </div>
+    <div class="header-logo">🧠</div>
+    <div class="header-text">
+        <h1>Detector de Isquemia Cerebral</h1>
+        <p>Procesamiento de Imágenes por Resonancia Magnética</p>
+    </div>
+    <div class="header-badge">MRI · Procesamiento Digital</div>
 </header>
 
+<!-- ═══════════════════════════════════════════════════════
+     LAYOUT PRINCIPAL
+════════════════════════════════════════════════════════ -->
 <div class="layout">
 
-  <!-- SIDEBAR -->
-  <aside class="sidebar">
+    <!-- ── SIDEBAR ── -->
+    <aside class="sidebar">
 
-    <!-- Cargar imagen -->
-    <div class="sb-block">
-      <div class="sb-label">Cargar imagen</div>
-      <div id="dropZone">
-        <div class="drop-arrow">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-            <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
-          </svg>
-        </div>
-        <p><span>Seleccione</span> o arrastre una imagen</p>
-        <p class="drop-fmts">DICOM &nbsp;·&nbsp; JPG &nbsp;·&nbsp; PNG &nbsp;·&nbsp; BMP</p>
-      </div>
-      <input type="file" id="fileInput" accept=".dcm,.dicom,.jpg,.jpeg,.png,.bmp,.tif,.tiff">
-      <div class="file-ok" id="fileOk">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-        <span id="fileName"></span>
-      </div>
-    </div>
-
-    <!-- Parámetros -->
-    <div class="sb-block">
-      <div class="sb-label">Parámetros</div>
-
-      <div class="field">
-        <div class="field-row">
-          <span>Sensibilidad (k&middot;&sigma;)</span>
-          <span class="field-val" id="sensitivityValue">2.0</span>
-        </div>
-        <input type="range" id="sensitivitySlider" min="0.5" max="4.0" step="0.1" value="2.0">
-        <div class="range-hints"><span>Permisivo</span><span>Estricto</span></div>
-      </div>
-
-      <div class="field">
-        <div class="field-row"><span>Secuencia</span></div>
-        <select id="detectionMode">
-          <option value="bright">Hiperintensa — T2 / FLAIR / DWI</option>
-          <option value="dark">Hipointensa — T1</option>
-        </select>
-      </div>
-
-      <div class="note-box">
-        <strong>Método:</strong> Umbralización estadística adaptativa (&mu; &plusmn; k&sigma;) sobre máscara cerebral, operaciones morfológicas y análisis de componentes conexos.
-      </div>
-    </div>
-
-    <!-- Acciones -->
-    <div class="sb-block">
-      <div class="sb-label">Acciones</div>
-      <button class="btn btn-primary" id="analyzeBtn" disabled>
-        <svg id="btnIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <span id="btnText">Ejecutar análisis</span>
-      </button>
-      <button class="btn btn-outline" id="exportBtn" disabled>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Exportar imagen
-      </button>
-      <button class="btn btn-outline" id="reportBtn" disabled>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-        Generar reporte
-      </button>
-    </div>
-
-    <!-- Metadatos DICOM -->
-    <div class="sb-block" id="dicomMeta">
-      <div class="sb-label">Metadatos DICOM</div>
-      <div id="metaList"></div>
-    </div>
-
-    <!-- Leyenda -->
-    <div class="sb-block">
-      <div class="sb-label">Leyenda</div>
-      <div class="legend">
-        <div class="legend-item">
-          <div class="swatch" style="background:rgba(255,60,60,.7);border:1px solid rgba(255,60,60,.35)"></div>
-          <span>Zona isquémica detectada</span>
-        </div>
-        <div class="legend-item">
-          <div class="swatch" style="background:#e0e000;border:1px solid rgba(200,200,0,.4)"></div>
-          <span>Contorno de la lesión</span>
-        </div>
-        <div class="legend-item">
-          <div class="swatch" style="background:rgba(0,200,200,.7);border:1px solid rgba(0,170,170,.35)"></div>
-          <span>Bounding box</span>
-        </div>
-      </div>
-    </div>
-
-  </aside>
-
-  <!-- ÁREA PRINCIPAL -->
-  <main class="main">
-
-    <!-- Status bar -->
-    <div class="statusbar" id="statusBar">
-      <div class="sb-dot"></div>
-      <span id="statusText">Listo &mdash; Cargue una imagen de RM para iniciar el análisis</span>
-    </div>
-
-    <!-- Pantalla de bienvenida -->
-    <div id="welcome">
-      <div class="wlc-title">Detección Automática de Isquemia Cerebral</div>
-      <div class="wlc-sub">Cargue una imagen de resonancia magnética para detectar zonas isquémicas, demarcar la lesión y calcular el área comprometida.</div>
-      <div class="fmt-list">
-        <span class="fmt-tag">DICOM</span>
-        <span class="fmt-tag">JPEG</span>
-        <span class="fmt-tag">PNG</span>
-        <span class="fmt-tag">BMP</span>
-        <span class="fmt-tag">TIFF</span>
-      </div>
-    </div>
-
-    <!-- Paneles de imagen -->
-    <div id="imgSection">
-
-      <div class="img-panel">
-        <div class="panel-head">
-          <span class="panel-tag">Imagen original</span>
-        </div>
-        <div class="canvas-box">
-          <canvas id="originalCanvas"></canvas>
-        </div>
-      </div>
-
-      <div class="img-panel">
-        <div class="panel-head">
-          <span class="panel-tag">Resultado del análisis</span>
-          <div class="view-tabs">
-            <button class="vtab active" data-view="overlay">Overlay</button>
-            <button class="vtab" data-view="mask">Máscara</button>
-            <button class="vtab" data-view="brain">Cerebro</button>
-          </div>
-        </div>
-        <div class="canvas-box" id="processedBox">
-          <div class="scanline" id="scanline"></div>
-          <canvas id="processedCanvas"></canvas>
-        </div>
-      </div>
-
-    </div>
-
-    <!-- Panel de resultados -->
-    <div id="results">
-      <div class="res-head">
-        <span class="res-title">Resultados del análisis</span>
-        <div class="detection-badge neutral" id="detBadge">Pendiente</div>
-      </div>
-      <div class="res-body">
-
-        <div class="pct-row">
-          <div class="pct-track"><div class="pct-fill" id="pctFill"></div></div>
-          <span class="pct-num" id="pctNum">0%</span>
+        <!-- Carga de imagen -->
+        <div class="sidebar-section">
+            <h3>Cargar Imagen</h3>
+            <div id="dropZone">
+                <div class="drop-icon">📂</div>
+                <p><span>Haga clic</span> o arrastre una imagen aquí</p>
+                <p style="margin-top:6px;font-size:0.7rem">DICOM · JPG · PNG · BMP</p>
+            </div>
+            <input type="file" id="fileInput" accept=".dcm,.dicom,.jpg,.jpeg,.png,.bmp,.tif,.tiff" style="display:none">
+            <div id="fileInfo"></div>
         </div>
 
-        <div class="metrics">
-          <div class="metric">
-            <div class="m-label">Área Cerebral</div>
-            <div class="m-value" id="mBrain">—</div>
-          </div>
-          <div class="metric">
-            <div class="m-label">Área Isquémica</div>
-            <div class="m-value" id="mIsch">—</div>
-          </div>
-          <div class="metric accent-card">
-            <div class="m-label">Tejido Comprometido</div>
-            <div class="m-value" id="mPct">—</div>
-          </div>
-          <div class="metric">
-            <div class="m-label">Regiones</div>
-            <div class="m-value" id="mReg">—</div>
-          </div>
+        <!-- Parámetros de detección -->
+        <div class="sidebar-section">
+            <h3>Parámetros de Detección</h3>
+
+            <div class="control-group">
+                <label>Modo de detección</label>
+                <select id="detectionMode">
+                    <option value="bright">Regiones hiperintensas (T2/FLAIR/DWI)</option>
+                    <option value="dark">Regiones hipointensas (T1)</option>
+                </select>
+            </div>
+
+            <div class="algo-info">
+                <strong>Algoritmo:</strong> Umbralización estadística adaptativa (media ± k·σ) dentro de la máscara cerebral, con operaciones morfológicas y análisis de componentes conectados.
+            </div>
         </div>
 
-        <div class="tbl-title">Detalle de regiones isquémicas</div>
-        <table>
-          <thead>
-            <tr>
-              <th>N&deg;</th>
-              <th>Área (px&sup2;)</th>
-              <th>% cerebro</th>
-              <th>Ubicación</th>
-              <th>Dimensiones</th>
-            </tr>
-          </thead>
-          <tbody id="regionsBody">
-            <tr><td colspan="5" class="td-empty">Ejecute el análisis para ver resultados</td></tr>
-          </tbody>
-        </table>
+        <!-- Acción principal -->
+        <div class="sidebar-section">
+            <button class="btn btn-primary" id="analyzeBtn" disabled>
+                🔬 Analizar Imagen
+            </button>
+            <button class="btn btn-secondary" id="exportBtn" disabled>
+                💾 Exportar imagen procesada
+            </button>
+            <button class="btn btn-secondary" id="reportBtn" disabled>
+                📄 Generar reporte PDF
+            </button>
+        </div>
 
-      </div>
-    </div>
+        <!-- Metadatos DICOM -->
+        <div class="sidebar-section" id="dicomMetadata">
+            <h3>Metadatos DICOM</h3>
+            <div id="metadataList"></div>
+        </div>
 
-  </main>
+        <!-- Leyenda -->
+        <div class="sidebar-section">
+            <h3>Leyenda de Colores</h3>
+            <div style="display:flex;flex-direction:column;gap:8px;font-size:0.8rem;">
+                <div style="display:flex;align-items:center;gap:10px">
+                    <div style="width:20px;height:20px;background:rgba(255,60,60,0.65);border-radius:3px;flex-shrink:0;border:1px solid rgba(255,60,60,.5)"></div>
+                    <span>Zona isquémica detectada</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px">
+                    <div style="width:20px;height:20px;background:#ffff00;border-radius:3px;flex-shrink:0"></div>
+                    <span>Contorno de la lesión</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px">
+                    <div style="width:20px;height:20px;background:#00ffff;border-radius:3px;flex-shrink:0"></div>
+                    <span>Bounding box de la región</span>
+                </div>
+            </div>
+        </div>
+
+    </aside>
+
+    <!-- ── CONTENIDO PRINCIPAL ── -->
+    <main class="main-content">
+
+        <!-- Barra de estado -->
+        <div class="status-bar" id="statusBar">
+            Listo — Cargue una imagen MRI para comenzar el análisis
+        </div>
+
+        <!-- Pantalla de bienvenida (visible inicialmente) -->
+        <div id="welcomeScreen">
+            <div class="welcome-icon">🧠</div>
+            <div class="welcome-title">Detector de Isquemia Cerebral en MRI</div>
+            <div class="welcome-sub">
+                Cargue una imagen de resonancia magnética para detectar automáticamente zonas isquémicas, demarcar la lesión y calcular el área afectada.
+            </div>
+            <div class="formats-list">
+                <span class="fmt-chip">DICOM (.dcm)</span>
+                <span class="fmt-chip">JPEG</span>
+                <span class="fmt-chip">PNG</span>
+                <span class="fmt-chip">BMP</span>
+                <span class="fmt-chip">TIFF</span>
+            </div>
+        </div>
+
+        <!-- Paneles de imagen (ocultos inicialmente) -->
+        <div id="imageSection" style="display:none; gap:16px; flex-direction: row; flex-wrap: wrap;">
+
+            <!-- Imagen original -->
+            <div class="image-panel-wrapper" style="flex:1;min-width:300px">
+                <div class="panel-header">
+                    <span>📷 Imagen Original</span>
+                </div>
+                <div class="canvas-container">
+                    <canvas id="originalCanvas"></canvas>
+                </div>
+            </div>
+
+            <!-- Imagen procesada -->
+            <div class="image-panel-wrapper" style="flex:1;min-width:300px">
+                <div class="panel-header">
+                    <span>🔬 Resultado del Análisis</span>
+                    <div class="view-controls">
+                        <button class="view-btn active" data-view="overlay" title="Overlay de isquemia sobre imagen original">Overlay</button>
+                        <button class="view-btn" data-view="mask" title="Solo la máscara de isquemia">Máscara</button>
+                        <button class="view-btn" data-view="brain" title="Región cerebral detectada">Cerebro</button>
+                    </div>
+                </div>
+                <div class="canvas-container">
+                    <canvas id="processedCanvas"></canvas>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Panel de resultados -->
+        <div id="resultsPanel">
+            <div class="results-header">📊 Resultados del Análisis</div>
+            <div class="results-body">
+
+                <!-- Indicador principal -->
+                <div id="detectionIndicator" class="detection-badge negative">
+                    <span class="badge-icon">✓</span>
+                    <span>SIN ISQUEMIA DETECTADA</span>
+                </div>
+
+                <!-- k usado en el análisis -->
+                <div id="kUsedLine" style="font-size:0.78rem; color:var(--muted);
+                     text-align:center; margin-top:6px; min-height:18px"></div>
+
+                <!-- Barra de porcentaje -->
+                <div class="pct-bar-container">
+                    <div id="percentageBar"></div>
+                </div>
+
+                <!-- Métricas -->
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="label">Área Cerebral Total</div>
+                        <div class="value" id="metricBrainArea">—</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="label">Área Isquémica</div>
+                        <div class="value" id="metricIschemicArea">—</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="label">Porcentaje Afectado</div>
+                        <div class="value" id="metricPercentage">—</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="label">Regiones Detectadas</div>
+                        <div class="value" id="metricRegions">—</div>
+                    </div>
+                </div>
+
+                <!-- Tabla de regiones -->
+                <div class="regions-section">
+                    <h4>Detalle de Regiones Isquémicas</h4>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Área (px²)</th>
+                                <th>% del cerebro</th>
+                                <th>Ubicación y dimensiones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="regionsTable">
+                            <tr><td colspan="4" style="text-align:center;color:var(--muted)">Sin datos</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+        </div>
+
+    </main>
 </div>
 
+<!-- ─── Scripts ─────────────────────────────────────────── -->
+<!-- dicom-parser para soporte de archivos DICOM -->
 <script src="https://unpkg.com/dicom-parser@1.8.21/dist/dicom-parser.min.js"></script>
+<!-- Módulos de la aplicación -->
 <script src="js/analyzer.js"></script>
 <script src="js/dicom-handler.js"></script>
 <script src="js/app.js"></script>
+
 </body>
 </html>

@@ -180,7 +180,7 @@ class IschemiaAnalyzer {
     }
 
     // Análisis principal
-    analyze(imageData, sensitivity = 2.0, mode = 'bright') {
+    analyze(imageData, sensitivity = null, mode = 'bright') {
         const { data, width, height } = imageData;
         const total = width * height;
 
@@ -206,27 +206,41 @@ class IschemiaAnalyzer {
         }
         const std = count ? Math.sqrt(variance / count) : 30;
 
-        // 4. Detección de isquemia por umbral estadístico
+        // 4. Determinar k: automático según estadísticas o manual desde parámetro
+        let k, autoK, autoKReason;
+        if (sensitivity === null) {
+            const brainPixels = new Float32Array(count);
+            let j = 0;
+            for (let i = 0; i < total; i++) {
+                if (brainMask[i]) brainPixels[j++] = blurred[i];
+            }
+            const res = this._calcAutoK(brainPixels, mean, std);
+            k = res.k; autoK = res.k; autoKReason = res.reason;
+        } else {
+            k = sensitivity; autoK = sensitivity; autoKReason = null;
+        }
+
+        // 5. Detección de isquemia por umbral estadístico
         const ischemiaRaw = new Uint8Array(total);
         for (let i = 0; i < total; i++) {
             if (!brainMask[i]) continue;
             if (mode === 'bright') {
-                ischemiaRaw[i] = blurred[i] > mean + sensitivity * std ? 1 : 0;
+                ischemiaRaw[i] = blurred[i] > mean + k * std ? 1 : 0;
             } else {
-                ischemiaRaw[i] = blurred[i] < mean - sensitivity * std ? 1 : 0;
+                ischemiaRaw[i] = blurred[i] < mean - k * std ? 1 : 0;
             }
         }
 
-        // 5. Apertura morfológica (elimina ruido pequeño)
+        // 6. Apertura morfológica (elimina ruido pequeño)
         let cleaned = this.erode(ischemiaRaw, width, height, 1);
         cleaned = this.dilate(cleaned, width, height, 2);
 
-        // 6. Componentes conectados + filtro por tamaño mínimo
+        // 7. Componentes conectados + filtro por tamaño mínimo
         const { labels, sizes } = this.connectedComponents(cleaned, width, height);
         const minSize = Math.max(30, brainArea * 0.0005);
         const valid = sizes.filter(s => s.size >= minSize);
 
-        // 7. Máscara final y bounding boxes
+        // 8. Máscara final y bounding boxes
         const finalMask = new Uint8Array(total);
         const validSet = new Set(valid.map(v => v.label));
         let ischemicArea = 0;
@@ -262,10 +276,59 @@ class IschemiaAnalyzer {
             mean: Math.round(mean),
             std: Math.round(std),
             width,
-            height
+            height,
+            autoK,
+            autoKReason
         };
 
         return this.results;
+    }
+
+    // Calcula k automáticamente según las características estadísticas del tejido cerebral
+    _calcAutoK(pixels, mean, std) {
+        const n = pixels.length;
+        if (n < 10 || std < 1) return { k: 2.0, reason: { cv: 0, skewness: 0, kurtosis: 0, kBase: 2.0 } };
+
+        const cv = mean > 0 ? std / mean : 0;
+
+        // Skewness = mean((x-μ)³) / σ³  y  Kurtosis = mean((x-μ)⁴) / σ⁴ - 3
+        let sum3 = 0, sum4 = 0;
+        for (let i = 0; i < n; i++) {
+            const z = (pixels[i] - mean) / std;
+            const z2 = z * z;
+            sum3 += z2 * z;
+            sum4 += z2 * z2;
+        }
+        const skewness = sum3 / n;
+        const kurtosis  = sum4 / n - 3;
+
+        // k_base según coeficiente de variación: CV alto → imagen heterogénea → k más alto
+        let kBase;
+        if (cv > 0.5)       kBase = 3.0;
+        else if (cv > 0.35) kBase = 2.5;
+        else if (cv > 0.20) kBase = 2.0;
+        else                kBase = 1.6;
+
+        // Ajuste por skewness: cola hacia brillantes → más píxeles naturalmente altos → subir k
+        if (skewness > 1.5)       kBase += 0.4;
+        else if (skewness > 0.5)  kBase += 0.2;
+        else if (skewness < -0.5) kBase -= 0.2;
+
+        // Ajuste por kurtosis: muchos valores extremos → subir k para ignorar outliers
+        if (kurtosis > 3)      kBase += 0.3;
+        else if (kurtosis > 1) kBase += 0.1;
+
+        const kFinal = Math.max(1.5, Math.min(3.5, kBase));
+
+        return {
+            k: kFinal,
+            reason: {
+                cv:       parseFloat(cv.toFixed(3)),
+                skewness: parseFloat(skewness.toFixed(3)),
+                kurtosis: parseFloat(kurtosis.toFixed(3)),
+                kBase:    parseFloat(kBase.toFixed(3))
+            }
+        };
     }
 
     // Genera imagen con overlay coloreado
