@@ -13,7 +13,6 @@ const App = {
 
     init() {
         this.bindEvents();
-        this.updateSensitivityLabel();
     },
 
     bindEvents() {
@@ -35,8 +34,6 @@ const App = {
         dropZone.addEventListener('click', () => document.getElementById('fileInput').click());
 
         // Controles
-        document.getElementById('sensitivitySlider').addEventListener('input', () => this.updateSensitivityLabel());
-        document.getElementById('autoKToggle').addEventListener('change', () => this.updateSensitivityLabel());
         document.getElementById('analyzeBtn').addEventListener('click', () => this.analyze());
 
         // Vista
@@ -52,30 +49,6 @@ const App = {
         // Exportar
         document.getElementById('exportBtn').addEventListener('click', () => this.exportImage());
         document.getElementById('reportBtn').addEventListener('click', () => this.printReport());
-    },
-
-    updateSensitivityLabel() {
-        const autoToggle = document.getElementById('autoKToggle');
-        const slider     = document.getElementById('sensitivitySlider');
-        const valueSpan  = document.getElementById('sensitivityValue');
-        const autoKInfo  = document.getElementById('autoKInfo');
-
-        if (autoToggle.checked) {
-            valueSpan.textContent      = 'AUTO';
-            slider.disabled            = true;
-            slider.style.opacity       = '0.4';
-            slider.style.pointerEvents = 'none';
-            // El texto de autoKInfo se actualiza en renderResults() tras el análisis;
-            // si aún no hay resultados lo limpiamos al cambiar el toggle
-            if (!this.results) autoKInfo.textContent = '';
-        } else {
-            const val = parseFloat(slider.value);
-            valueSpan.textContent      = val.toFixed(1);
-            slider.disabled            = false;
-            slider.style.opacity       = '1';
-            slider.style.pointerEvents = '';
-            autoKInfo.textContent      = `k manual: ${val.toFixed(1)}`;
-        }
     },
 
     async loadFile(file) {
@@ -132,10 +105,7 @@ const App = {
     analyze() {
         if (!this.originalImageData) return;
 
-        const autoToggle  = document.getElementById('autoKToggle');
-        const sensitivity = autoToggle.checked
-            ? null
-            : parseFloat(document.getElementById('sensitivitySlider').value);
+        const sensitivity = null; // siempre automático
         const mode = document.getElementById('detectionMode').value;
 
         this.setStatus('processing', 'Analizando imagen...');
@@ -180,15 +150,6 @@ const App = {
         if (kUsedLine && r.autoK != null) {
             const isAuto = r.autoKReason !== null;
             kUsedLine.textContent = `Sensibilidad usada: k = ${r.autoK.toFixed(2)} (${isAuto ? 'automático' : 'manual'})`;
-        }
-
-        // Actualizar info de k en el sidebar
-        const autoKInfo = document.getElementById('autoKInfo');
-        if (autoKInfo && r.autoK != null) {
-            const isAuto = r.autoKReason !== null;
-            autoKInfo.textContent = isAuto
-                ? `k calculado automáticamente: ${r.autoK.toFixed(2)}`
-                : `k manual: ${r.autoK.toFixed(2)}`;
         }
 
         // Métricas
