@@ -197,9 +197,7 @@ const App = {
         let imageData;
 
         if (this.activeView === 'overlay') {
-            // T1 (modo oscuro): overlay negro para destacar zonas hipointensas
-            const color = this.results.mode === 'dark' ? [0, 0, 0] : [255, 60, 60];
-            imageData = this.analyzer.generateOverlay(this.originalImageData, this.results, color);
+            imageData = this.analyzer.generateOverlay(this.originalImageData, this.results);
         } else if (this.activeView === 'mask') {
             imageData = this.createMaskImage();
         } else {

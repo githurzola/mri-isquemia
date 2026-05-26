@@ -268,12 +268,30 @@ class IschemiaAnalyzer {
 
         // 5. Detección de isquemia por umbral estadístico
         const ischemiaRaw = new Uint8Array(total);
-        for (let i = 0; i < total; i++) {
-            if (!brainMask[i]) continue;
-            if (mode === 'bright') {
-                ischemiaRaw[i] = blurred[i] > mean + k * std ? 1 : 0;
-            } else {
-                ischemiaRaw[i] = blurred[i] < mean - k * std ? 1 : 0;
+        if (mode === 'bright') {
+            for (let i = 0; i < total; i++) {
+                if (brainMask[i]) ischemiaRaw[i] = blurred[i] > mean + k * std ? 1 : 0;
+            }
+        } else {
+            // T1: doble umbral para concentrarse en los más oscuros dentro de la escala oscura
+            // Paso A — identificar el grupo oscuro (CSF + isquemia): píxeles bajo statsMin
+            // Paso B — dentro de ese grupo, detectar los anormalmente oscuros (isquemia vs CSF normal)
+            let darkSum = 0, darkCount = 0;
+            for (let i = 0; i < total; i++) {
+                if (brainMask[i] && blurred[i] < statsMin) {
+                    darkSum += blurred[i]; darkCount++;
+                }
+            }
+            const darkMean = darkCount ? darkSum / darkCount : statsMin * 0.5;
+            let darkVar = 0;
+            for (let i = 0; i < total; i++) {
+                if (brainMask[i] && blurred[i] < statsMin) darkVar += (blurred[i] - darkMean) ** 2;
+            }
+            const darkStd = darkCount ? Math.sqrt(darkVar / darkCount) : 8;
+            const darkThresh = darkMean - k * darkStd;
+
+            for (let i = 0; i < total; i++) {
+                if (brainMask[i]) ischemiaRaw[i] = blurred[i] < darkThresh ? 1 : 0;
             }
         }
 
