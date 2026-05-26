@@ -231,13 +231,13 @@ class IschemiaAnalyzer {
             }
         }
 
-        // 6. Apertura morfológica (elimina ruido pequeño)
-        let cleaned = this.erode(ischemiaRaw, width, height, 1);
-        cleaned = this.dilate(cleaned, width, height, 2);
+        // 6. Solo dilatación leve: se omite la erosión para no destruir lesiones pequeñas
+        //    El filtro por tamaño mínimo en CC reemplaza la función anti-ruido de la erosión
+        let cleaned = this.dilate(ischemiaRaw, width, height, 1);
 
         // 7. Componentes conectados + filtro por tamaño mínimo
         const { labels, sizes } = this.connectedComponents(cleaned, width, height);
-        const minSize = Math.max(30, brainArea * 0.0005);
+        const minSize = Math.max(15, brainArea * 0.0003);
         const valid = sizes.filter(s => s.size >= minSize);
 
         // 8. Máscara final y bounding boxes
@@ -303,22 +303,24 @@ class IschemiaAnalyzer {
         const kurtosis  = sum4 / n - 3;
 
         // k_base según coeficiente de variación: CV alto → imagen heterogénea → k más alto
+        // Valores reducidos respecto a versión anterior para mayor sensibilidad
         let kBase;
-        if (cv > 0.5)       kBase = 3.0;
-        else if (cv > 0.35) kBase = 2.5;
-        else if (cv > 0.20) kBase = 2.0;
-        else                kBase = 1.6;
+        if (cv > 0.5)       kBase = 2.3;
+        else if (cv > 0.35) kBase = 1.8;
+        else if (cv > 0.20) kBase = 1.5;
+        else                kBase = 1.2;
 
         // Ajuste por skewness: cola hacia brillantes → más píxeles naturalmente altos → subir k
-        if (skewness > 1.5)       kBase += 0.4;
-        else if (skewness > 0.5)  kBase += 0.2;
-        else if (skewness < -0.5) kBase -= 0.2;
+        if (skewness > 1.5)       kBase += 0.3;
+        else if (skewness > 0.5)  kBase += 0.1;
+        else if (skewness < -0.5) kBase -= 0.1;
 
         // Ajuste por kurtosis: muchos valores extremos → subir k para ignorar outliers
-        if (kurtosis > 3)      kBase += 0.3;
+        if (kurtosis > 3)      kBase += 0.2;
         else if (kurtosis > 1) kBase += 0.1;
 
-        const kFinal = Math.max(1.5, Math.min(3.5, kBase));
+        // Rango [1.1, 2.5]: más sensible que la versión anterior [1.5, 3.5]
+        const kFinal = Math.max(1.1, Math.min(2.5, kBase));
 
         return {
             k: kFinal,
