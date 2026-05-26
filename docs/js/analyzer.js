@@ -353,25 +353,33 @@ class IschemiaAnalyzer {
         const { labels, sizes } = this.connectedComponents(cleaned, width, height);
         const minSize = Math.max(15, brainArea * 0.0003);
 
-        // 9. Para T1: calcular intensidad media de cada región para descartar LCR
-        //    (el LCR es muy oscuro en T1 y no es isquemia — se excluye si su media está bajo statsMin)
-        let regionMeans = null;
-        if (esT1 && sizes.length > 0) {
-            regionMeans = {};
-            const rSum = {}, rCnt = {};
-            for (let i = 0; i < total; i++) {
-                const lbl = labels[i];
-                if (!lbl) continue;
-                rSum[lbl] = (rSum[lbl] || 0) + blurred[i];
-                rCnt[lbl] = (rCnt[lbl] || 0) + 1;
+        // 9. Bounding box de todas las regiones (necesario para filtros de forma en T1)
+        const allBoxes = {};
+        for (let i = 0; i < total; i++) {
+            const lbl = labels[i];
+            if (!lbl) continue;
+            const x = i % width, y = Math.floor(i / width);
+            if (!allBoxes[lbl]) allBoxes[lbl] = { minX: x, maxX: x, minY: y, maxY: y };
+            else {
+                if (x < allBoxes[lbl].minX) allBoxes[lbl].minX = x;
+                if (x > allBoxes[lbl].maxX) allBoxes[lbl].maxX = x;
+                if (y < allBoxes[lbl].minY) allBoxes[lbl].minY = y;
+                if (y > allBoxes[lbl].maxY) allBoxes[lbl].maxY = y;
             }
-            for (const lbl in rSum) regionMeans[lbl] = rSum[lbl] / rCnt[lbl];
         }
 
         const valid = sizes.filter(s => {
             if (s.size < minSize) return false;
-            // En T1 descartar regiones con intensidad media propia del LCR
-            if (esT1 && regionMeans) return regionMeans[s.label] > statsMin * 0.85;
+            if (esT1 && allBoxes[s.label]) {
+                const bw = allBoxes[s.label].maxX - allBoxes[s.label].minX + 1;
+                const bh = allBoxes[s.label].maxY - allBoxes[s.label].minY + 1;
+                // Descartar tiras muy alargadas (sulcos del LCR): relación de aspecto alta o compacidad baja
+                const aspectRatio = Math.max(bw, bh) / (Math.min(bw, bh) + 1);
+                const compactness = s.size / (bw * bh);
+                if (aspectRatio > 5 || compactness < 0.25) return false;
+                // Descartar regiones excesivamente grandes (ventrículos laterales)
+                if (s.size > brainArea * 0.15) return false;
+            }
             return true;
         });
 
