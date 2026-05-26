@@ -13,7 +13,7 @@
      HEADER
 ════════════════════════════════════════════════════════ -->
 <header>
-    <div class="header-logo">🧠</div>
+    <div class="header-logo">IC</div>
     <div class="header-text">
         <h1>Detector de Isquemia Cerebral</h1>
         <p>Procesamiento de Imágenes por Resonancia Magnética</p>
@@ -33,7 +33,6 @@
         <div class="sidebar-section">
             <h3>Cargar Imagen</h3>
             <div id="dropZone">
-                <div class="drop-icon">📂</div>
                 <p><span>Haga clic</span> o arrastre una imagen aquí</p>
                 <p style="margin-top:6px;font-size:0.7rem">DICOM · JPG · PNG · BMP</p>
             </div>
@@ -61,13 +60,13 @@
         <!-- Acción principal -->
         <div class="sidebar-section">
             <button class="btn btn-primary" id="analyzeBtn" disabled>
-                🔬 Analizar Imagen
+                Analizar Imagen
             </button>
             <button class="btn btn-secondary" id="exportBtn" disabled>
-                💾 Exportar imagen procesada
+                Exportar imagen procesada
             </button>
             <button class="btn btn-secondary" id="reportBtn" disabled>
-                📄 Generar reporte PDF
+                Generar reporte PDF
             </button>
         </div>
 
@@ -108,7 +107,6 @@
 
         <!-- Pantalla de bienvenida (visible inicialmente) -->
         <div id="welcomeScreen">
-            <div class="welcome-icon">🧠</div>
             <div class="welcome-title">Detector de Isquemia Cerebral en MRI</div>
             <div class="welcome-sub">
                 Cargue una imagen de resonancia magnética para detectar automáticamente zonas isquémicas, demarcar la lesión y calcular el área afectada.
@@ -128,7 +126,7 @@
             <!-- Imagen original -->
             <div class="image-panel-wrapper" style="flex:1;min-width:300px">
                 <div class="panel-header">
-                    <span>📷 Imagen Original</span>
+                    <span>Imagen Original</span>
                 </div>
                 <div class="canvas-container">
                     <canvas id="originalCanvas"></canvas>
@@ -138,7 +136,7 @@
             <!-- Imagen procesada -->
             <div class="image-panel-wrapper" style="flex:1;min-width:300px">
                 <div class="panel-header">
-                    <span>🔬 Resultado del Análisis</span>
+                    <span>Resultado del Análisis</span>
                     <div class="view-controls">
                         <button class="view-btn active" data-view="overlay" title="Overlay de isquemia sobre imagen original">Overlay</button>
                         <button class="view-btn" data-view="mask" title="Solo la máscara de isquemia">Máscara</button>
@@ -154,7 +152,7 @@
 
         <!-- Panel de resultados -->
         <div id="resultsPanel">
-            <div class="results-header">📊 Resultados del Análisis</div>
+            <div class="results-header">Resultados del Análisis</div>
             <div class="results-body">
 
                 <!-- Indicador principal -->

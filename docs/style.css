@@ -50,7 +50,10 @@ header {
     background: linear-gradient(135deg, var(--accent), var(--accent2));
     border-radius: 10px;
     display: flex; align-items: center; justify-content: center;
-    font-size: 22px;
+    font-size: 13px;
+    font-weight: 800;
+    color: white;
+    letter-spacing: .02em;
     flex-shrink: 0;
 }
 
@@ -128,7 +131,6 @@ header {
     background: rgba(0,180,216,.06);
 }
 
-#dropZone .drop-icon { font-size: 32px; margin-bottom: 8px; }
 #dropZone p { font-size: 0.8rem; color: var(--muted); }
 #dropZone span { color: var(--accent); font-weight: 500; }
 
@@ -448,7 +450,6 @@ tbody tr:hover { background: rgba(0,180,216,.04); }
     gap: 12px;
     flex: 1;
 }
-.welcome-icon { font-size: 72px; opacity: .3; }
 .welcome-title { font-size: 1.4rem; font-weight: 700; color: #e6edf3; }
 .welcome-sub { font-size: 0.9rem; color: var(--muted); max-width: 360px; line-height: 1.6; }
 .formats-list {
