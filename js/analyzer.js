@@ -309,25 +309,40 @@ class IschemiaAnalyzer {
                 }
             }
         } else {
-            // T1: doble umbral — dentro del grupo oscuro, detectar los más oscuros
-            // Paso A: grupo oscuro = píxeles bajo statsMin dentro de la zona interna
-            // Paso B: dentro de ese grupo, solo los que caen bajo darkMean - k*darkStd
-            let darkSum = 0, darkCount = 0;
-            for (let i = 0; i < total; i++) {
-                if (detectionMask[i] && blurred[i] < statsMin) {
-                    darkSum += blurred[i]; darkCount++;
-                }
-            }
-            const darkMean = darkCount ? darkSum / darkCount : statsMin * 0.5;
-            let darkVar = 0;
-            for (let i = 0; i < total; i++) {
-                if (detectionMask[i] && blurred[i] < statsMin) darkVar += (blurred[i] - darkMean) ** 2;
-            }
-            const darkStd = darkCount ? Math.sqrt(darkVar / darkCount) : 8;
-            const darkThresh = darkMean - k * darkStd;
+            // T1: referencia cruzada por hemisferio (espejo de T2 pero buscando zonas más oscuras).
+            // La referencia usa solo píxeles de tejido real (> statsMin) para excluir CSF y fondo residual.
+            const mitad = Math.floor(width / 2);
+            let sumIzq = 0, countIzq = 0, sumDer = 0, countDer = 0;
 
             for (let i = 0; i < total; i++) {
-                if (detectionMask[i]) ischemiaRaw[i] = blurred[i] < darkThresh ? 1 : 0;
+                if (!detectionMask[i] || blurred[i] <= statsMin) continue;
+                const x = i % width;
+                if (x < mitad) { sumIzq += blurred[i]; countIzq++; }
+                else            { sumDer += blurred[i]; countDer++; }
+            }
+
+            const meanIzqD = countIzq ? sumIzq / countIzq : 128;
+            const meanDerD = countDer ? sumDer / countDer : 128;
+
+            let varIzq = 0, varDer = 0;
+            for (let i = 0; i < total; i++) {
+                if (!detectionMask[i] || blurred[i] <= statsMin) continue;
+                const x = i % width;
+                if (x < mitad) varIzq += (blurred[i] - meanIzqD) ** 2;
+                else           varDer += (blurred[i] - meanDerD) ** 2;
+            }
+            const stdIzqD = countIzq ? Math.sqrt(varIzq / countIzq) : 30;
+            const stdDerD = countDer ? Math.sqrt(varDer / countDer) : 30;
+
+            // Hemisferio izquierdo → referencia: derecho; derecho → referencia: izquierdo
+            for (let i = 0; i < total; i++) {
+                if (!detectionMask[i]) continue;
+                const x = i % width;
+                if (x < mitad) {
+                    ischemiaRaw[i] = blurred[i] < meanDerD - k * stdDerD ? 1 : 0;
+                } else {
+                    ischemiaRaw[i] = blurred[i] < meanIzqD - k * stdIzqD ? 1 : 0;
+                }
             }
         }
 
