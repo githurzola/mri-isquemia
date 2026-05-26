@@ -151,6 +151,18 @@ const App = {
             kUsedLine.textContent = `Sensibilidad usada: k = ${r.autoK.toFixed(2)} (${isAuto ? 'automático' : 'manual'})`;
         }
 
+        // Mostrar secuencia detectada automáticamente
+        let seqLine = document.getElementById('sequenceLine');
+        if (!seqLine) {
+            seqLine = document.createElement('div');
+            seqLine.id = 'sequenceLine';
+            seqLine.style.cssText = 'font-size:0.76rem; color:var(--muted); text-align:center; margin-top:4px; min-height:16px;';
+            if (kUsedLine) kUsedLine.insertAdjacentElement('afterend', seqLine);
+        }
+        seqLine.textContent = r.esT1
+            ? 'Secuencia: T1 — buscando zonas hipointensas'
+            : 'Secuencia: T2/FLAIR — buscando zonas hiperintensas';
+
         // Métricas
         const brainAreaCm2 = this.dicomHandler?.pixelsToArea(r.brainArea);
         const ischemicAreaCm2 = this.dicomHandler?.pixelsToArea(r.ischemicArea);
