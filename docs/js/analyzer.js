@@ -194,15 +194,25 @@ class IschemiaAnalyzer {
         for (let i = 0; i < total; i++) if (brainMask[i]) brainArea++;
 
         // 3. Estadísticas dentro del cerebro
+        // Modo oscuro (T1): se excluye CSF con un sub-Otsu interno para que la media
+        // y la desviación representen WM/GM y no se inflen por píxeles muy oscuros
+        let statsMin = 0;
+        if (mode === 'dark') {
+            const brainHist = this.computeHistogram(blurred, width, height, brainMask);
+            let brainCount = 0;
+            for (let i = 0; i < total; i++) if (brainMask[i]) brainCount++;
+            statsMin = this.otsuThreshold(brainHist, brainCount);
+        }
+
         let sum = 0, count = 0;
         for (let i = 0; i < total; i++) {
-            if (brainMask[i]) { sum += blurred[i]; count++; }
+            if (brainMask[i] && blurred[i] > statsMin) { sum += blurred[i]; count++; }
         }
         const mean = count ? sum / count : 128;
 
         let variance = 0;
         for (let i = 0; i < total; i++) {
-            if (brainMask[i]) variance += (blurred[i] - mean) ** 2;
+            if (brainMask[i] && blurred[i] > statsMin) variance += (blurred[i] - mean) ** 2;
         }
         const std = count ? Math.sqrt(variance / count) : 30;
 
@@ -269,7 +279,8 @@ class IschemiaAnalyzer {
             width,
             height,
             autoK,
-            autoKReason
+            autoKReason,
+            mode
         };
 
         return this.results;
