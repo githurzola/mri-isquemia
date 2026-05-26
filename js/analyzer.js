@@ -238,26 +238,30 @@ class IschemiaAnalyzer {
         let brainArea = 0;
         for (let i = 0; i < total; i++) if (brainMask[i]) brainArea++;
 
-        // 3. Estadísticas dentro del cerebro
-        // Modo oscuro (T1): se excluye CSF con un sub-Otsu interno para que la media
-        // y la desviación representen WM/GM y no se inflen por píxeles muy oscuros
+        // 2b. Máscara de detección interna: erosión proporcional al cerebro para excluir
+        //     el anillo externo (cráneo, meninges, fondo residual, corteza periférica)
+        const erodeR = Math.max(5, Math.min(15, Math.round(Math.sqrt(brainArea / Math.PI) * 0.05)));
+        const detectionMask = this.erode(brainMask, width, height, erodeR);
+
+        // 3. Estadísticas sobre la zona interna del cerebro
+        // Modo oscuro (T1): sub-Otsu excluye CSF para que media/std representen WM/GM
         let statsMin = 0;
         if (mode === 'dark') {
-            const brainHist = this.computeHistogram(blurred, width, height, brainMask);
+            const brainHist = this.computeHistogram(blurred, width, height, detectionMask);
             let brainCount = 0;
-            for (let i = 0; i < total; i++) if (brainMask[i]) brainCount++;
+            for (let i = 0; i < total; i++) if (detectionMask[i]) brainCount++;
             statsMin = this.otsuThreshold(brainHist, brainCount);
         }
 
         let sum = 0, count = 0;
         for (let i = 0; i < total; i++) {
-            if (brainMask[i] && blurred[i] > statsMin) { sum += blurred[i]; count++; }
+            if (detectionMask[i] && blurred[i] > statsMin) { sum += blurred[i]; count++; }
         }
         const mean = count ? sum / count : 128;
 
         let variance = 0;
         for (let i = 0; i < total; i++) {
-            if (brainMask[i] && blurred[i] > statsMin) variance += (blurred[i] - mean) ** 2;
+            if (detectionMask[i] && blurred[i] > statsMin) variance += (blurred[i] - mean) ** 2;
         }
         const std = count ? Math.sqrt(variance / count) : 30;
 
@@ -266,32 +270,32 @@ class IschemiaAnalyzer {
         const autoK = k;
         const autoKReason = null;
 
-        // 5. Detección de isquemia por umbral estadístico
+        // 5. Detección de isquemia — solo dentro de la máscara interna (sin borde externo)
         const ischemiaRaw = new Uint8Array(total);
         if (mode === 'bright') {
             for (let i = 0; i < total; i++) {
-                if (brainMask[i]) ischemiaRaw[i] = blurred[i] > mean + k * std ? 1 : 0;
+                if (detectionMask[i]) ischemiaRaw[i] = blurred[i] > mean + k * std ? 1 : 0;
             }
         } else {
-            // T1: doble umbral para concentrarse en los más oscuros dentro de la escala oscura
-            // Paso A — identificar el grupo oscuro (CSF + isquemia): píxeles bajo statsMin
-            // Paso B — dentro de ese grupo, detectar los anormalmente oscuros (isquemia vs CSF normal)
+            // T1: doble umbral — dentro del grupo oscuro, detectar los más oscuros
+            // Paso A: grupo oscuro = píxeles bajo statsMin dentro de la zona interna
+            // Paso B: dentro de ese grupo, solo los que caen bajo darkMean - k*darkStd
             let darkSum = 0, darkCount = 0;
             for (let i = 0; i < total; i++) {
-                if (brainMask[i] && blurred[i] < statsMin) {
+                if (detectionMask[i] && blurred[i] < statsMin) {
                     darkSum += blurred[i]; darkCount++;
                 }
             }
             const darkMean = darkCount ? darkSum / darkCount : statsMin * 0.5;
             let darkVar = 0;
             for (let i = 0; i < total; i++) {
-                if (brainMask[i] && blurred[i] < statsMin) darkVar += (blurred[i] - darkMean) ** 2;
+                if (detectionMask[i] && blurred[i] < statsMin) darkVar += (blurred[i] - darkMean) ** 2;
             }
             const darkStd = darkCount ? Math.sqrt(darkVar / darkCount) : 8;
             const darkThresh = darkMean - k * darkStd;
 
             for (let i = 0; i < total; i++) {
-                if (brainMask[i]) ischemiaRaw[i] = blurred[i] < darkThresh ? 1 : 0;
+                if (detectionMask[i]) ischemiaRaw[i] = blurred[i] < darkThresh ? 1 : 0;
             }
         }
 
