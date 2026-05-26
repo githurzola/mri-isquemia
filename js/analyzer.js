@@ -244,8 +244,8 @@ class IschemiaAnalyzer {
 
         // 3b. Máscara de detección interna: erosión proporcional para excluir borde externo.
         //     T1 usa factor mayor porque la corteza periférica es naturalmente más oscura.
-        const erodeRFactor = esT1 ? 0.08 : 0.05;
-        const erodeRMin   = esT1 ? 10   : 5;
+        const erodeRFactor = esT1 ? 0.04 : 0.05;
+        const erodeRMin   = esT1 ? 4    : 5;
         const erodeR = Math.max(erodeRMin, Math.min(25, Math.round(Math.sqrt(brainArea / Math.PI) * erodeRFactor)));
         const detectionMask = this.erode(brainMask, width, height, erodeR);
 
@@ -281,7 +281,8 @@ class IschemiaAnalyzer {
         const mitad = Math.floor(width / 2);
 
         if (esT1) {
-            // T1: buscar zonas HIPOINTENSAS — estadísticas por hemisferio solo sobre tejido (> statsMin)
+            // T1: buscar zonas HIPOINTENSAS
+            // Estadísticas por hemisferio SOLO sobre tejido sano (> statsMin) para calcular media/std
             let sumIzq = 0, countIzq = 0, sumDer = 0, countDer = 0;
             for (let i = 0; i < total; i++) {
                 if (!detectionMask[i] || blurred[i] <= statsMin) continue;
@@ -303,8 +304,9 @@ class IschemiaAnalyzer {
             const stdDerD = countDer ? Math.sqrt(varDer / countDer) : 30;
 
             // Hemisferio izquierdo → referencia: derecho; derecho → referencia: izquierdo
+            // IMPORTANTE: NO filtrar por statsMin aquí — los píxeles oscuros son los candidatos a isquemia
             for (let i = 0; i < total; i++) {
-                if (!detectionMask[i]) continue;
+                if (!brainMask[i]) continue;
                 const x = i % width;
                 if (x < mitad) {
                     ischemiaRaw[i] = blurred[i] < meanDerD - k * stdDerD ? 1 : 0;
@@ -376,9 +378,9 @@ class IschemiaAnalyzer {
                 // Descartar tiras muy alargadas (sulcos del LCR): relación de aspecto alta o compacidad baja
                 const aspectRatio = Math.max(bw, bh) / (Math.min(bw, bh) + 1);
                 const compactness = s.size / (bw * bh);
-                if (aspectRatio > 5 || compactness < 0.25) return false;
+                if (aspectRatio > 8 || compactness < 0.15) return false;
                 // Descartar regiones excesivamente grandes (ventrículos laterales)
-                if (s.size > brainArea * 0.15) return false;
+                if (s.size > brainArea * 0.25) return false;
             }
             return true;
         });
