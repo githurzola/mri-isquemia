@@ -273,8 +273,40 @@ class IschemiaAnalyzer {
         // 5. Detección de isquemia — solo dentro de la máscara interna (sin borde externo)
         const ischemiaRaw = new Uint8Array(total);
         if (mode === 'bright') {
+            // Estadísticas por hemisferio: cada lado se compara contra el opuesto como referencia sana.
+            // Resuelve el caso en que una lesión grande eleva el promedio global e impide la detección.
+            const mitad = Math.floor(width / 2);
+            let sumIzq = 0, countIzq = 0, sumDer = 0, countDer = 0;
+
             for (let i = 0; i < total; i++) {
-                if (detectionMask[i]) ischemiaRaw[i] = blurred[i] > mean + k * std ? 1 : 0;
+                if (!brainMask[i]) continue;
+                const x = i % width;
+                if (x < mitad) { sumIzq += blurred[i]; countIzq++; }
+                else            { sumDer += blurred[i]; countDer++; }
+            }
+
+            const meanIzq = countIzq ? sumIzq / countIzq : 128;
+            const meanDer = countDer ? sumDer / countDer : 128;
+
+            let varIzq = 0, varDer = 0;
+            for (let i = 0; i < total; i++) {
+                if (!brainMask[i]) continue;
+                const x = i % width;
+                if (x < mitad) varIzq += (blurred[i] - meanIzq) ** 2;
+                else           varDer += (blurred[i] - meanDer) ** 2;
+            }
+            const stdIzq = countIzq ? Math.sqrt(varIzq / countIzq) : 30;
+            const stdDer = countDer ? Math.sqrt(varDer / countDer) : 30;
+
+            // Hemisferio izquierdo → referencia: derecho; derecho → referencia: izquierdo
+            for (let i = 0; i < total; i++) {
+                if (!brainMask[i]) continue;
+                const x = i % width;
+                if (x < mitad) {
+                    ischemiaRaw[i] = blurred[i] > meanDer + k * stdDer ? 1 : 0;
+                } else {
+                    ischemiaRaw[i] = blurred[i] > meanIzq + k * stdIzq ? 1 : 0;
+                }
             }
         } else {
             // T1: doble umbral — dentro del grupo oscuro, detectar los más oscuros
