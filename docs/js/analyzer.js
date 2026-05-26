@@ -151,6 +151,48 @@ class IschemiaAnalyzer {
         return { labels, sizes };
     }
 
+    // Máscara para T1: flood-fill desde los bordes identifica el fondo externo negro;
+    // el cerebro = todo lo que no está conectado al borde, incluyendo zonas oscuras internas
+    detectBrainMaskFromBorder(gray, width, height) {
+        const total = width * height;
+
+        // Umbral de fondo: Otsu × 0.5 para capturar el negro externo sin entrar al tejido
+        const hist = this.computeHistogram(gray, width, height, null);
+        const bgThresh = this.otsuThreshold(hist, total) * 0.5;
+
+        // Flood-fill desde los cuatro bordes de la imagen
+        const bg = new Uint8Array(total);
+        const stack = [];
+        const visit = (idx) => {
+            if (idx >= 0 && idx < total && !bg[idx] && gray[idx] <= bgThresh) {
+                bg[idx] = 1; stack.push(idx);
+            }
+        };
+        for (let x = 0; x < width; x++) {
+            visit(x); visit((height - 1) * width + x);
+        }
+        for (let y = 0; y < height; y++) {
+            visit(y * width); visit(y * width + width - 1);
+        }
+        while (stack.length) {
+            const idx = stack.pop();
+            const x = idx % width, y = Math.floor(idx / width);
+            if (x > 0)          visit(idx - 1);
+            if (x < width - 1)  visit(idx + 1);
+            if (y > 0)          visit(idx - width);
+            if (y < height - 1) visit(idx + width);
+        }
+
+        // Cerebro = todo lo que no es fondo externo (CSF e isquemia interna incluidos)
+        const brain = new Uint8Array(total);
+        for (let i = 0; i < total; i++) brain[i] = bg[i] ? 0 : 1;
+
+        // Cierre morfológico para sellar pequeños huecos en el borde de la máscara
+        let m = this.dilate(brain, width, height, 4);
+        m = this.erode(m, width, height, 4);
+        return m;
+    }
+
     // Detecta la máscara del cerebro (separa cerebro del fondo)
     detectBrainMask(gray, width, height) {
         const hist = this.computeHistogram(gray, width, height, null);
@@ -189,7 +231,10 @@ class IschemiaAnalyzer {
         const blurred = this.gaussianBlur(gray, width, height);
 
         // 2. Máscara cerebral
-        const brainMask = this.detectBrainMask(blurred, width, height);
+        // T1 oscuro: flood-fill desde borde para incluir zonas oscuras internas
+        const brainMask = (mode === 'dark')
+            ? this.detectBrainMaskFromBorder(blurred, width, height)
+            : this.detectBrainMask(blurred, width, height);
         let brainArea = 0;
         for (let i = 0; i < total; i++) if (brainMask[i]) brainArea++;
 
@@ -216,9 +261,9 @@ class IschemiaAnalyzer {
         }
         const std = count ? Math.sqrt(variance / count) : 30;
 
-        // 4. Sensibilidad fija k=2
-        const k = 2;
-        const autoK = 2;
+        // 4. Sensibilidad: k=1.5 para T1 (más sensible a zonas hipointensas), k=2 para T2/FLAIR
+        const k = mode === 'dark' ? 1.5 : 2;
+        const autoK = k;
         const autoKReason = null;
 
         // 5. Detección de isquemia por umbral estadístico
