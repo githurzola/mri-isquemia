@@ -242,77 +242,85 @@ class IschemiaAnalyzer {
         let brainArea = 0;
         for (let i = 0; i < total; i++) if (brainMask[i]) brainArea++;
 
-        // 3b. Máscara de detección interna: erosión proporcional para excluir borde externo.
-        //     T1 usa factor mayor porque la corteza periférica es naturalmente más oscura.
-        const erodeRFactor = esT1 ? 0.04 : 0.05;
-        const erodeRMin   = esT1 ? 4    : 5;
+        // 3b. Máscara de detección interna: erosión ligera solo para estadísticas
+        const erodeRFactor = esT1 ? 0.03 : 0.05;
+        const erodeRMin   = esT1 ? 3    : 5;
         const erodeR = Math.max(erodeRMin, Math.min(25, Math.round(Math.sqrt(brainArea / Math.PI) * erodeRFactor)));
         const detectionMask = this.erode(brainMask, width, height, erodeR);
 
         // 4. Estadísticas sobre la zona interna del cerebro
-        // T1: sub-Otsu excluye LCR para que media/std representen WM/GM (tejido real)
         let statsMin = 0;
-        if (esT1) {
-            const brainHist = this.computeHistogram(blurred, width, height, detectionMask);
-            let brainCount = 0;
-            for (let i = 0; i < total; i++) if (detectionMask[i]) brainCount++;
-            statsMin = this.otsuThreshold(brainHist, brainCount);
-        }
-
         let sum = 0, count = 0;
-        for (let i = 0; i < total; i++) {
-            if (detectionMask[i] && blurred[i] > statsMin) { sum += blurred[i]; count++; }
-        }
-        const mean = count ? sum / count : 128;
+        let mean, std;
 
-        let variance = 0;
-        for (let i = 0; i < total; i++) {
-            if (detectionMask[i] && blurred[i] > statsMin) variance += (blurred[i] - mean) ** 2;
-        }
-        const std = count ? Math.sqrt(variance / count) : 30;
+        if (esT1) {
+            // T1: Recoger TODOS los valores de intensidad dentro del cerebro
+            const brainValues = [];
+            for (let i = 0; i < total; i++) {
+                if (brainMask[i]) brainValues.push(blurred[i]);
+            }
+            brainValues.sort((a, b) => a - b);
 
-        // 5. Sensibilidad k = 2.0 fijo
-        const k = 2.0;
+            // Calcular percentil 25 como umbral para separar zonas oscuras anormales del tejido normal
+            const p25 = brainValues[Math.floor(brainValues.length * 0.25)] || 0;
+            const p75 = brainValues[Math.floor(brainValues.length * 0.75)] || 255;
+
+            // Estadísticas solo del tejido "normal" (entre p25 y p75 = rango intercuartil)
+            let sumNorm = 0, countNorm = 0;
+            for (let i = 0; i < total; i++) {
+                if (brainMask[i] && blurred[i] >= p25 && blurred[i] <= p75) {
+                    sumNorm += blurred[i]; countNorm++;
+                }
+            }
+            mean = countNorm ? sumNorm / countNorm : 128;
+
+            let varNorm = 0;
+            for (let i = 0; i < total; i++) {
+                if (brainMask[i] && blurred[i] >= p25 && blurred[i] <= p75) {
+                    varNorm += (blurred[i] - mean) ** 2;
+                }
+            }
+            std = countNorm ? Math.sqrt(varNorm / countNorm) : 30;
+            count = countNorm;
+        } else {
+            // T2/FLAIR: estadísticas normales
+            for (let i = 0; i < total; i++) {
+                if (detectionMask[i]) { sum += blurred[i]; count++; }
+            }
+            mean = count ? sum / count : 128;
+
+            let variance = 0;
+            for (let i = 0; i < total; i++) {
+                if (detectionMask[i]) variance += (blurred[i] - mean) ** 2;
+            }
+            std = count ? Math.sqrt(variance / count) : 30;
+        }
+
+        // 5. Sensibilidad
+        const k = esT1 ? 1.5 : 2.0;
         const autoK = k;
         const autoKReason = null;
 
-        // 6. Detección con referencia cruzada hemisférica
+        // 6. Detección
         const ischemiaRaw = new Uint8Array(total);
         const mitad = Math.floor(width / 2);
 
         if (esT1) {
             // T1: buscar zonas HIPOINTENSAS
-            // Estadísticas por hemisferio SOLO sobre tejido sano (> statsMin) para calcular media/std
-            let sumIzq = 0, countIzq = 0, sumDer = 0, countDer = 0;
+            // Umbral global: píxeles significativamente más oscuros que el tejido normal
+            const darkThresh = mean - k * std;
+            // Umbral absoluto de seguridad: no detectar nada por encima de la mediana del cerebro
+            const brainValuesAll = [];
             for (let i = 0; i < total; i++) {
-                if (!detectionMask[i] || blurred[i] <= statsMin) continue;
-                const x = i % width;
-                if (x < mitad) { sumIzq += blurred[i]; countIzq++; }
-                else            { sumDer += blurred[i]; countDer++; }
+                if (brainMask[i]) brainValuesAll.push(blurred[i]);
             }
-            const meanIzqD = countIzq ? sumIzq / countIzq : 128;
-            const meanDerD = countDer ? sumDer / countDer : 128;
+            brainValuesAll.sort((a, b) => a - b);
+            const medianBrain = brainValuesAll[Math.floor(brainValuesAll.length * 0.5)] || 128;
+            const maxDetect = Math.min(darkThresh, medianBrain * 0.6);
 
-            let varIzq = 0, varDer = 0;
-            for (let i = 0; i < total; i++) {
-                if (!detectionMask[i] || blurred[i] <= statsMin) continue;
-                const x = i % width;
-                if (x < mitad) varIzq += (blurred[i] - meanIzqD) ** 2;
-                else           varDer += (blurred[i] - meanDerD) ** 2;
-            }
-            const stdIzqD = countIzq ? Math.sqrt(varIzq / countIzq) : 30;
-            const stdDerD = countDer ? Math.sqrt(varDer / countDer) : 30;
-
-            // Hemisferio izquierdo → referencia: derecho; derecho → referencia: izquierdo
-            // IMPORTANTE: NO filtrar por statsMin aquí — los píxeles oscuros son los candidatos a isquemia
             for (let i = 0; i < total; i++) {
                 if (!brainMask[i]) continue;
-                const x = i % width;
-                if (x < mitad) {
-                    ischemiaRaw[i] = blurred[i] < meanDerD - k * stdDerD ? 1 : 0;
-                } else {
-                    ischemiaRaw[i] = blurred[i] < meanIzqD - k * stdIzqD ? 1 : 0;
-                }
+                ischemiaRaw[i] = blurred[i] < maxDetect ? 1 : 0;
             }
         } else {
             // T2/FLAIR: buscar zonas HIPERINTENSAS — cada lado vs el opuesto como referencia sana
@@ -348,14 +356,21 @@ class IschemiaAnalyzer {
             }
         }
 
-        // 7. Solo dilatación leve: el filtro por tamaño en CC reemplaza la erosión anti-ruido
-        let cleaned = this.dilate(ischemiaRaw, width, height, 1);
+        // 7. Limpieza morfológica
+        let cleaned;
+        if (esT1) {
+            // T1: erosión ligera para quitar ruido, luego dilatación para recuperar bordes
+            cleaned = this.erode(ischemiaRaw, width, height, 1);
+            cleaned = this.dilate(cleaned, width, height, 2);
+        } else {
+            cleaned = this.dilate(ischemiaRaw, width, height, 1);
+        }
 
         // 8. Componentes conectados
         const { labels, sizes } = this.connectedComponents(cleaned, width, height);
         const minSize = Math.max(15, brainArea * 0.0003);
 
-        // 9. Bounding box de todas las regiones (necesario para filtros de forma en T1)
+        // 9. Bounding box de todas las regiones
         const allBoxes = {};
         for (let i = 0; i < total; i++) {
             const lbl = labels[i];
@@ -375,12 +390,9 @@ class IschemiaAnalyzer {
             if (esT1 && allBoxes[s.label]) {
                 const bw = allBoxes[s.label].maxX - allBoxes[s.label].minX + 1;
                 const bh = allBoxes[s.label].maxY - allBoxes[s.label].minY + 1;
-                // Descartar tiras muy alargadas (sulcos del LCR): relación de aspecto alta o compacidad baja
                 const aspectRatio = Math.max(bw, bh) / (Math.min(bw, bh) + 1);
-                const compactness = s.size / (bw * bh);
-                if (aspectRatio > 8 || compactness < 0.15) return false;
-                // Descartar regiones excesivamente grandes (ventrículos laterales)
-                if (s.size > brainArea * 0.25) return false;
+                // Solo filtrar tiras extremadamente alargadas (no lesiones reales)
+                if (aspectRatio > 10) return false;
             }
             return true;
         });
