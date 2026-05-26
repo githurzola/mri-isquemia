@@ -105,7 +105,6 @@ const App = {
     analyze() {
         if (!this.originalImageData) return;
 
-        const sensitivity = null; // siempre automático
         const mode = document.getElementById('detectionMode').value;
 
         this.setStatus('processing', 'Analizando imagen...');
@@ -114,7 +113,7 @@ const App = {
         // Usar setTimeout para permitir que la UI se actualice antes del procesamiento
         setTimeout(() => {
             try {
-                this.results = this.analyzer.analyze(this.originalImageData, sensitivity, mode);
+                this.results = this.analyzer.analyze(this.originalImageData, mode);
                 this.renderResults();
                 this.renderActiveView();
                 document.getElementById('exportBtn').disabled = false;
