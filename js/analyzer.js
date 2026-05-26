@@ -222,7 +222,7 @@ class IschemiaAnalyzer {
     }
 
     // Análisis principal
-    analyze(imageData, mode = 'auto') {
+    analyze(imageData, mode = 'bright') {
         const { data, width, height } = imageData;
         const total = width * height;
 
@@ -230,22 +230,11 @@ class IschemiaAnalyzer {
         const gray = this.toGrayscale(imageData);
         const blurred = this.gaussianBlur(gray, width, height);
 
-        // 2. Detección automática del tipo de secuencia mediante histograma
-        //    En T1: WM brillante, GM gris, LCR oscuro → distribución equilibrada → ratioBA 0.8–1.3
-        //    En T2/FLAIR: LCR brillante → cola hacia valores altos → ratioBA < 0.8
-        //    Se excluyen píxeles de fondo negro (≤ 10) para no contaminar la distribución
-        let histBajo = 0, histAlto = 0;
-        for (let i = 0; i < total; i++) {
-            const v = blurred[i];
-            if (v <= 10) continue;
-            if (v < 128) histBajo++;
-            else histAlto++;
-        }
-        const ratioBA = histAlto > 0 ? histBajo / histAlto : 1.0;
-        const esT1 = ratioBA >= 0.8 && ratioBA <= 1.3;
+        // 2. Tipo de secuencia viene del selector manual del UI
+        const esT1 = mode === 'dark';
         const modoDeteccion = esT1 ? 'T1 - hipointenso' : 'T2/FLAIR - hiperintenso';
 
-        // 3. Máscara cerebral según tipo detectado
+        // 3. Máscara cerebral según tipo
         // T1 oscuro: flood-fill desde borde para incluir zonas oscuras internas
         const brainMask = esT1
             ? this.detectBrainMaskFromBorder(blurred, width, height)
@@ -253,17 +242,15 @@ class IschemiaAnalyzer {
         let brainArea = 0;
         for (let i = 0; i < total; i++) if (brainMask[i]) brainArea++;
 
-        // 3b. Máscara de detección interna: erosión proporcional al cerebro para excluir
-        //     el anillo externo (cráneo, meninges, fondo residual, corteza periférica).
-        //     T1 usa factor mayor porque la corteza periférica es naturalmente más oscura
-        //     y se confunde con anomalías en la comparación hemisférica.
-        const erodeRFactor = esT1 ? 0.12 : 0.05;
-        const erodeRMin   = esT1 ? 15   : 5;
+        // 3b. Máscara de detección interna: erosión proporcional para excluir borde externo.
+        //     T1 usa factor mayor porque la corteza periférica es naturalmente más oscura.
+        const erodeRFactor = esT1 ? 0.08 : 0.05;
+        const erodeRMin   = esT1 ? 10   : 5;
         const erodeR = Math.max(erodeRMin, Math.min(25, Math.round(Math.sqrt(brainArea / Math.PI) * erodeRFactor)));
         const detectionMask = this.erode(brainMask, width, height, erodeR);
 
         // 4. Estadísticas sobre la zona interna del cerebro
-        // T1: sub-Otsu excluye CSF para que media/std representen WM/GM
+        // T1: sub-Otsu excluye LCR para que media/std representen WM/GM (tejido real)
         let statsMin = 0;
         if (esT1) {
             const brainHist = this.computeHistogram(blurred, width, height, detectionMask);
@@ -289,22 +276,19 @@ class IschemiaAnalyzer {
         const autoK = k;
         const autoKReason = null;
 
-        // 6. Detección de isquemia con referencia cruzada hemisférica
+        // 6. Detección con referencia cruzada hemisférica
         const ischemiaRaw = new Uint8Array(total);
         const mitad = Math.floor(width / 2);
 
         if (esT1) {
-            // T1: buscar zonas HIPOINTENSAS (oscuras) — hemisferio izquierdo vs referencia derecha y viceversa.
-            // Solo píxeles de tejido real (> statsMin) para excluir CSF y fondo residual.
+            // T1: buscar zonas HIPOINTENSAS — estadísticas por hemisferio solo sobre tejido (> statsMin)
             let sumIzq = 0, countIzq = 0, sumDer = 0, countDer = 0;
-
             for (let i = 0; i < total; i++) {
                 if (!detectionMask[i] || blurred[i] <= statsMin) continue;
                 const x = i % width;
                 if (x < mitad) { sumIzq += blurred[i]; countIzq++; }
                 else            { sumDer += blurred[i]; countDer++; }
             }
-
             const meanIzqD = countIzq ? sumIzq / countIzq : 128;
             const meanDerD = countDer ? sumDer / countDer : 128;
 
@@ -329,17 +313,14 @@ class IschemiaAnalyzer {
                 }
             }
         } else {
-            // T2/FLAIR: buscar zonas HIPERINTENSAS (brillantes) — cada lado vs el opuesto como referencia sana.
-            // Resuelve el caso en que una lesión grande eleva el promedio global e impide la detección.
+            // T2/FLAIR: buscar zonas HIPERINTENSAS — cada lado vs el opuesto como referencia sana
             let sumIzq = 0, countIzq = 0, sumDer = 0, countDer = 0;
-
             for (let i = 0; i < total; i++) {
                 if (!brainMask[i]) continue;
                 const x = i % width;
                 if (x < mitad) { sumIzq += blurred[i]; countIzq++; }
                 else            { sumDer += blurred[i]; countDer++; }
             }
-
             const meanIzq = countIzq ? sumIzq / countIzq : 128;
             const meanDer = countDer ? sumDer / countDer : 128;
 
@@ -365,16 +346,36 @@ class IschemiaAnalyzer {
             }
         }
 
-        // 7. Solo dilatación leve: se omite la erosión para no destruir lesiones pequeñas
-        //    El filtro por tamaño mínimo en CC reemplaza la función anti-ruido de la erosión
+        // 7. Solo dilatación leve: el filtro por tamaño en CC reemplaza la erosión anti-ruido
         let cleaned = this.dilate(ischemiaRaw, width, height, 1);
 
-        // 8. Componentes conectados + filtro por tamaño mínimo
+        // 8. Componentes conectados
         const { labels, sizes } = this.connectedComponents(cleaned, width, height);
         const minSize = Math.max(15, brainArea * 0.0003);
-        const valid = sizes.filter(s => s.size >= minSize);
 
-        // 9. Máscara final y bounding boxes
+        // 9. Para T1: calcular intensidad media de cada región para descartar LCR
+        //    (el LCR es muy oscuro en T1 y no es isquemia — se excluye si su media está bajo statsMin)
+        let regionMeans = null;
+        if (esT1 && sizes.length > 0) {
+            regionMeans = {};
+            const rSum = {}, rCnt = {};
+            for (let i = 0; i < total; i++) {
+                const lbl = labels[i];
+                if (!lbl) continue;
+                rSum[lbl] = (rSum[lbl] || 0) + blurred[i];
+                rCnt[lbl] = (rCnt[lbl] || 0) + 1;
+            }
+            for (const lbl in rSum) regionMeans[lbl] = rSum[lbl] / rCnt[lbl];
+        }
+
+        const valid = sizes.filter(s => {
+            if (s.size < minSize) return false;
+            // En T1 descartar regiones con intensidad media propia del LCR
+            if (esT1 && regionMeans) return regionMeans[s.label] > statsMin * 0.85;
+            return true;
+        });
+
+        // 10. Máscara final y bounding boxes
         const finalMask = new Uint8Array(total);
         const validSet = new Set(valid.map(v => v.label));
         let ischemicArea = 0;
@@ -413,9 +414,9 @@ class IschemiaAnalyzer {
             height,
             autoK,
             autoKReason,
-            mode: esT1 ? 'dark' : 'bright',
+            mode,
             esT1,
-            ratioBA: Math.round(ratioBA * 100) / 100,
+            ratioBA: null,
             modoDeteccion
         };
 
