@@ -239,8 +239,12 @@ class IschemiaAnalyzer {
         for (let i = 0; i < total; i++) if (brainMask[i]) brainArea++;
 
         // 2b. Máscara de detección interna: erosión proporcional al cerebro para excluir
-        //     el anillo externo (cráneo, meninges, fondo residual, corteza periférica)
-        const erodeR = Math.max(5, Math.min(15, Math.round(Math.sqrt(brainArea / Math.PI) * 0.05)));
+        //     el anillo externo (cráneo, meninges, fondo residual, corteza periférica).
+        //     T1 usa factor mayor porque la corteza periférica es naturalmente más oscura
+        //     y se confunde con anomalías en la comparación hemisférica.
+        const erodeRFactor = mode === 'dark' ? 0.12 : 0.05;
+        const erodeRMin   = mode === 'dark' ? 15   : 5;
+        const erodeR = Math.max(erodeRMin, Math.min(25, Math.round(Math.sqrt(brainArea / Math.PI) * erodeRFactor)));
         const detectionMask = this.erode(brainMask, width, height, erodeR);
 
         // 3. Estadísticas sobre la zona interna del cerebro
