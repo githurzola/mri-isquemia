@@ -179,38 +179,6 @@ class IschemiaAnalyzer {
         return this.dilate(brain, width, height, 3);
     }
 
-    // Máscara cerebral para CT: excluye cráneo (muy brillante) y fondo (muy oscuro)
-    detectBrainMaskCT(gray, width, height) {
-        const total = width * height;
-
-        // En CT normalizado a 8 bits: fondo ~0-20, cerebro ~100-170, cráneo ~190-255
-        // Umbral doble para aislar tejido cerebral
-        let maxVal = 0;
-        for (let i = 0; i < total; i++) if (gray[i] > maxVal) maxVal = gray[i];
-        const lo = maxVal * 0.12;
-        const hi = maxVal * 0.80;
-
-        const mask = new Uint8Array(total);
-        for (let i = 0; i < total; i++) {
-            mask[i] = (gray[i] > lo && gray[i] < hi) ? 1 : 0;
-        }
-
-        // Cierre morfológico amplio para rellenar ventrículos y surcos
-        let m = this.dilate(mask, width, height, 6);
-        m = this.erode(m, width, height, 6);
-
-        // Componente más grande = parénquima cerebral
-        const { labels, sizes } = this.connectedComponents(m, width, height);
-        if (!sizes.length) return mask;
-        sizes.sort((a, b) => b.size - a.size);
-        const brainLabel = sizes[0].label;
-
-        const brain = new Uint8Array(total);
-        for (let i = 0; i < total; i++) brain[i] = labels[i] === brainLabel ? 1 : 0;
-
-        return this.dilate(brain, width, height, 2);
-    }
-
     // Análisis principal
     analyze(imageData, mode = 'bright') {
         const { data, width, height } = imageData;
@@ -220,10 +188,8 @@ class IschemiaAnalyzer {
         const gray = this.toGrayscale(imageData);
         const blurred = this.gaussianBlur(gray, width, height);
 
-        // 2. Máscara cerebral (CT usa umbral doble para excluir cráneo)
-        const brainMask = (mode === 'ct')
-            ? this.detectBrainMaskCT(blurred, width, height)
-            : this.detectBrainMask(blurred, width, height);
+        // 2. Máscara cerebral
+        const brainMask = this.detectBrainMask(blurred, width, height);
         let brainArea = 0;
         for (let i = 0; i < total; i++) if (brainMask[i]) brainArea++;
 
@@ -246,8 +212,6 @@ class IschemiaAnalyzer {
         const autoKReason = null;
 
         // 5. Detección de isquemia por umbral estadístico
-        //    CT e MRI-T1: hipodensas/hipointensas (oscuras)  →  mean - k·σ
-        //    MRI T2/FLAIR/DWI: hiperintensas (brillantes)    →  mean + k·σ
         const ischemiaRaw = new Uint8Array(total);
         for (let i = 0; i < total; i++) {
             if (!brainMask[i]) continue;

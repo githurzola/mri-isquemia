@@ -46,14 +46,13 @@
             <div class="control-group">
                 <label>Modo de detección</label>
                 <select id="detectionMode">
-                    <option value="bright">MRI — Hiperintensas (T2 / FLAIR / DWI)</option>
-                    <option value="ct">CT — Hipodensas (isquemia aguda)</option>
-                    <option value="dark">MRI — Hipointensas (T1)</option>
+                    <option value="bright">Regiones hiperintensas (T2/FLAIR/DWI)</option>
+                    <option value="dark">Regiones hipointensas (T1)</option>
                 </select>
             </div>
 
             <div class="algo-info">
-                <strong>Algoritmo:</strong> Umbralización estadística (media ± k·σ) dentro de la máscara cerebral. En CT se usa umbral doble para excluir cráneo. Incluye operaciones morfológicas y análisis de componentes conectados.
+                <strong>Algoritmo:</strong> Umbralización estadística adaptativa (media ± k·σ) dentro de la máscara cerebral, con operaciones morfológicas y análisis de componentes conectados.
             </div>
         </div>
 
@@ -157,8 +156,7 @@
 
                 <!-- Indicador principal -->
                 <div id="detectionIndicator" class="detection-badge negative">
-                    <span class="badge-icon">✓</span>
-                    <span>SIN ISQUEMIA DETECTADA</span>
+                    SIN ISQUEMIA DETECTADA
                 </div>
 
                 <!-- k usado en el análisis -->

@@ -138,10 +138,10 @@ const App = {
         const indicator = document.getElementById('detectionIndicator');
         if (r.hasIschemia) {
             indicator.className = 'detection-badge positive';
-            indicator.innerHTML = `<span class="badge-icon">⚠</span><span>ISQUEMIA DETECTADA</span>`;
+            indicator.innerHTML = `ISQUEMIA DETECTADA`;
         } else {
             indicator.className = 'detection-badge negative';
-            indicator.innerHTML = `<span class="badge-icon">✓</span><span>SIN ISQUEMIA DETECTADA</span>`;
+            indicator.innerHTML = `SIN ISQUEMIA DETECTADA`;
         }
 
         // Mostrar k usado en el panel de resultados
@@ -364,7 +364,7 @@ const App = {
 
 <h2>Resultado de Detección</h2>
 <p><span class="badge ${r.hasIschemia ? 'positive' : 'negative'}">
-  ${r.hasIschemia ? '⚠ ISQUEMIA DETECTADA' : '✓ SIN ISQUEMIA DETECTADA'}
+  ${r.hasIschemia ? 'ISQUEMIA DETECTADA' : 'SIN ISQUEMIA DETECTADA'}
 </span></p>
 
 <h2>Métricas</h2>
